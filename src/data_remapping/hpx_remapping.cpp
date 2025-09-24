@@ -449,7 +449,7 @@ torch::Tensor xy2xy_batch(torch::Tensor data_xy_in, const std::string& s_origin,
 
 
 
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+PYBIND11_MODULE(cuhpx_remap, m) {
 
     m.def("ring2nest", &ring2nest, "Convert ring to nest (CUDA)");
     m.def("nest2ring", &nest2ring, "Convert nest to ring (CUDA)");
