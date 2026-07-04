@@ -43,6 +43,38 @@ def test_shtcuda_spin2_ishtcuda_spin2_roundtrip(device, nside, lmax, mmax, compl
     E_back, B_back = sht_cuda(g1, g2)
     g1_back, g2_back = isht_cuda(E_back, B_back)
 
+    import numpy as np
+    with np.printoptions(linewidth=200, threshold=10, precision=3, suppress=True, formatter={"float_kind": lambda x: f"{x: .6e}",  "complex_kind": lambda z: f"{z.real:+.6e}{z.imag:+.6e}j"}):
+
+        E_np = E.detach().cpu().numpy().ravel()
+        E_back_np = E_back.detach().cpu().numpy().ravel()
+        B_np = B.detach().cpu().numpy().ravel()
+        B_back_np = B_back.detach().cpu().numpy().ravel()
+        g1_np = g1.detach().cpu().numpy().ravel()
+        g2_np = g2.detach().cpu().numpy().ravel()
+        g1_back_np = g1_back.detach().cpu().numpy().ravel()
+        g2_back_np = g2_back.detach().cpu().numpy().ravel()
+
+        print('E shape', E_np.shape)
+        print('E_back shape', E_back_np.shape)
+        print('B shape', B_np.shape)
+        print('B_back shape', B_back_np.shape)
+        print('g1 shape', g1_np.shape)
+        print('g2 shape', g2_np.shape)
+        print('g1_back shape', g1_back_np.shape)
+        print('g2_back shape', g2_back_np.shape)
+
+        nvals = 100
+        print('g1     ', g1_np[:nvals])
+        print('g2     ', g2_np[:nvals])
+        print('g1_back', g1_back_np[:nvals])
+        print('g2_back', g2_back_np[:nvals])
+
+        print('E      ', E_np[E_np != 0][:nvals])
+        print('E_back ', E_back_np[E_back_np != 0][:nvals])
+        print('B      ', B_np[B_np != 0][:nvals])
+        print('B_back ', B_back_np[B_back_np != 0][:nvals])
+
     rtol, atol = get_roundtrip_tol()
     assert torch.allclose(
         g1_back, g1, rtol=rtol, atol=atol
@@ -50,3 +82,9 @@ def test_shtcuda_spin2_ishtcuda_spin2_roundtrip(device, nside, lmax, mmax, compl
     assert torch.allclose(
         g2_back, g2, rtol=rtol, atol=atol
     ), f"Spin-2 CUDA g2 roundtrip failed: max diff = {(g2_back - g2).abs().max():.2e}"
+    assert torch.allclose(
+        E_back, E, rtol=rtol, atol=atol
+    ), f"Spin-2 CUDA E roundtrip failed: max diff = {(E_back - E).abs().max():.2e}"
+    assert torch.allclose(
+        B_back, B, rtol=rtol, atol=atol
+    ), f"Spin-2 CUDA B roundtrip failed: max diff = {(B_back - B).abs().max():.2e}"
