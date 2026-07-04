@@ -36,12 +36,29 @@ def test_shtcuda_spin2_ishtcuda_spin2_roundtrip(device, nside, lmax, mmax, compl
     max_l = min(lmax // 2, nside // 2)
     for l_idx in range(2, max_l):
         for m_idx in range(min(l_idx + 1, mmax)):
-            E[l_idx, m_idx] = torch.randn((), dtype=complex_dtype, device=device)
-            B[l_idx, m_idx] = torch.randn((), dtype=complex_dtype, device=device)
+            if m_idx == 0:
+                # Real-valued g1/g2 maps can only encode real m=0 coefficients;
+                # the imaginary m=0 component has no conjugate negative-m partner
+                # and is discarded by the real FFT inverse.
+                E[l_idx, m_idx] = torch.randn((), dtype=E.real.dtype, device=device)
+                B[l_idx, m_idx] = torch.randn((), dtype=B.real.dtype, device=device)
+            else:
+                E[l_idx, m_idx] = torch.randn((), dtype=complex_dtype, device=device)
+                B[l_idx, m_idx] = torch.randn((), dtype=complex_dtype, device=device)
+
+    valid_coeffs = torch.zeros((lmax, mmax), dtype=torch.bool, device=device)
+    for l_idx in range(2, max_l):
+        valid_coeffs[l_idx, : min(l_idx + 1, mmax)] = True
 
     g1, g2 = isht_cuda(E, B)
     E_back, B_back = sht_cuda(g1, g2)
-    g1_back, g2_back = isht_cuda(E_back, B_back)
+
+    # HEALPix quadrature is approximate and can leave small out-of-band residuals
+    # in coefficients that were intentionally zero in the band-limited input.
+    # Do not feed those residual modes back into iSHT for the map round-trip check.
+    E_back_bandlimited = torch.where(valid_coeffs, E_back, torch.zeros_like(E_back))
+    B_back_bandlimited = torch.where(valid_coeffs, B_back, torch.zeros_like(B_back))
+    g1_back, g2_back = isht_cuda(E_back_bandlimited, B_back_bandlimited)
 
     import numpy as np
     with np.printoptions(linewidth=200, threshold=10, precision=3, suppress=True, formatter={"float_kind": lambda x: f"{x: .6e}",  "complex_kind": lambda z: f"{z.real:+.6e}{z.imag:+.6e}j"}):
