@@ -36,8 +36,15 @@ def test_shtcuda_spin2_ishtcuda_spin2_roundtrip(device, nside, lmax, mmax, compl
     max_l = min(lmax // 2, nside // 2)
     for l_idx in range(2, max_l):
         for m_idx in range(min(l_idx + 1, mmax)):
-            E[l_idx, m_idx] = torch.randn((), dtype=complex_dtype, device=device)
-            B[l_idx, m_idx] = torch.randn((), dtype=complex_dtype, device=device)
+            if m_idx == 0:
+                # Real-valued g1/g2 maps can only encode real m=0 coefficients;
+                # the imaginary m=0 component has no conjugate negative-m partner
+                # and is discarded by the real FFT inverse.
+                E[l_idx, m_idx] = torch.randn((), dtype=E.real.dtype, device=device)
+                B[l_idx, m_idx] = torch.randn((), dtype=B.real.dtype, device=device)
+            else:
+                E[l_idx, m_idx] = torch.randn((), dtype=complex_dtype, device=device)
+                B[l_idx, m_idx] = torch.randn((), dtype=complex_dtype, device=device)
 
     g1, g2 = isht_cuda(E, B)
     E_back, B_back = sht_cuda(g1, g2)
