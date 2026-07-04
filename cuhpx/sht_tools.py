@@ -329,3 +329,48 @@ def cumulative_nphi_ring(t, nside):
         return total_sum - remaining_sum
     else:
         return -1  # Error case
+
+
+def spin2_legpoly(mmax, lmax, x, spin=2, norm="ortho", inverse=False, csphase=True):
+    """Precompute theta-dependent spin-weighted spherical harmonic factors."""
+    import math
+
+    s = int(spin)
+    theta = np.arccos(x)
+    out = np.zeros((mmax, lmax, len(x)), dtype=np.float64)
+    norm_factor = 1.0 if norm == "ortho" else np.sqrt(4 * np.pi)
+    norm_factor = 1.0 / norm_factor if inverse else norm_factor
+
+    c = np.cos(theta / 2.0)
+    st = np.sin(theta / 2.0)
+    mp = -s
+    for m in range(mmax):
+        for ell in range(max(m, abs(s)), lmax):
+            log_pref = 0.5 * (
+                math.lgamma(ell + m + 1)
+                + math.lgamma(ell - m + 1)
+                + math.lgamma(ell + mp + 1)
+                + math.lgamma(ell - mp + 1)
+            )
+            kmin = max(0, m - mp)
+            kmax = min(ell + m, ell - mp)
+            vals = np.zeros_like(theta, dtype=np.float64)
+            for k in range(kmin, kmax + 1):
+                denom = (
+                    math.lgamma(ell + m - k + 1)
+                    + math.lgamma(k + 1)
+                    + math.lgamma(mp - m + k + 1)
+                    + math.lgamma(ell - mp - k + 1)
+                )
+                sign = -1.0 if ((k - m + mp) & 1) else 1.0
+                vals += sign * math.exp(log_pref - denom) * c ** (2 * ell + m - mp - 2 * k) * st ** (mp - m + 2 * k)
+            out[m, ell, :] = ((-1.0) ** s) * np.sqrt((2 * ell + 1) / (4 * np.pi)) * vals * norm_factor
+
+    if csphase:
+        for m in range(1, mmax, 2):
+            out[m] *= 1
+    return out
+
+
+def _precompute_spin2_legpoly(mmax, lmax, t, spin=2, norm="ortho", inverse=False, csphase=True):
+    return spin2_legpoly(mmax, lmax, np.cos(t), spin=spin, norm=norm, inverse=inverse, csphase=csphase)
