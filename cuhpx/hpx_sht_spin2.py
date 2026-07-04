@@ -72,11 +72,11 @@ class SHTCUDA_spin2(nn.Module):
         if g1.shape != g2.shape:
             raise ValueError("g1 and g2 must have the same shape.")
         if g1.dim() == 1:
-            q = cuhpx_fft.healpix_rfft_class(g1, self.mmax, self.nside)
-            u = cuhpx_fft.healpix_rfft_class(g2, self.mmax, self.nside)
+            q = cuhpx_fft.healpix_rfft_class(g1, self.mmax, self.nside).clone()
+            u = cuhpx_fft.healpix_rfft_class(g2, self.mmax, self.nside).clone()
         else:
-            q = cuhpx_fft.healpix_rfft_batch(g1, self.mmax, self.nside)
-            u = cuhpx_fft.healpix_rfft_batch(g2, self.mmax, self.nside)
+            q = cuhpx_fft.healpix_rfft_batch(g1, self.mmax, self.nside).clone()
+            u = cuhpx_fft.healpix_rfft_batch(g2, self.mmax, self.nside).clone()
         gc = q + 1j * u
         gcc = q - 1j * u
         w2 = self.w2_f64 if g1.dtype == torch.float64 else self.w2
@@ -144,9 +144,9 @@ class iSHTCUDA_spin2(nn.Module):
         q = 0.5 * (ftm + ftm_conj)
         u = (ftm - ftm_conj) / (2j)
         if q.dim() == 2:
-            return cuhpx_fft.healpix_irfft_class(q.contiguous(), self.mmax, self.nside), cuhpx_fft.healpix_irfft_class(
-                u.contiguous(), self.mmax, self.nside
-            )
-        return cuhpx_fft.healpix_irfft_batch(q.contiguous(), self.mmax, self.nside), cuhpx_fft.healpix_irfft_batch(
-            u.contiguous(), self.mmax, self.nside
-        )
+            g1 = cuhpx_fft.healpix_irfft_class(q.contiguous(), self.mmax, self.nside).clone()
+            g2 = cuhpx_fft.healpix_irfft_class(u.contiguous(), self.mmax, self.nside).clone()
+            return g1, g2
+        g1 = cuhpx_fft.healpix_irfft_batch(q.contiguous(), self.mmax, self.nside).clone()
+        g2 = cuhpx_fft.healpix_irfft_batch(u.contiguous(), self.mmax, self.nside).clone()
+        return g1, g2
