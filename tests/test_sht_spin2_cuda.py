@@ -105,3 +105,50 @@ def test_shtcuda_spin2_ishtcuda_spin2_roundtrip(device, nside, lmax, mmax, compl
     assert torch.allclose(
         B_back, B, rtol=rtol, atol=atol
     ), f"Spin-2 CUDA B roundtrip failed: max diff = {(B_back - B).abs().max():.2e}"
+
+
+@pytest.mark.cuda
+def test_ishtcuda_spin2_matches_healpy_alm2map_spin_from_synfast_eb_maps(device):
+    """Compare cuhpx and healpy E/B-to-shear spin-2 synthesis on synfast maps."""
+    hp = pytest.importorskip("healpy")
+    import numpy as np
+
+    nside = 16
+    lmax = 3 * nside - 1
+    mmax = lmax
+    lmax_hp = lmax - 1
+    mmax_hp = mmax - 1
+
+    ell = np.arange(lmax, dtype=np.float64)
+    cl = np.zeros(lmax, dtype=np.float64)
+    cl[2:] = 1.0e-4 / (ell[2:] * (ell[2:] + 1.0))
+
+    np.random.seed(42)
+    e_map = hp.synfast(cl, nside=nside, lmax=lmax_hp, new=True, pol=False, verbose=False)
+    b_map = hp.synfast(0.5 * cl, nside=nside, lmax=lmax_hp, new=True, pol=False, verbose=False)
+    e_alm_hp = hp.map2alm(e_map, lmax=lmax_hp, mmax=mmax_hp, iter=0)
+    b_alm_hp = hp.map2alm(b_map, lmax=lmax_hp, mmax=mmax_hp, iter=0)
+
+    e_alm = np.zeros((lmax, mmax), dtype=np.complex128)
+    b_alm = np.zeros((lmax, mmax), dtype=np.complex128)
+    for ell_idx in range(lmax):
+        for m_idx in range(min(ell_idx, mmax_hp) + 1):
+            hp_idx = hp.Alm.getidx(lmax_hp, ell_idx, m_idx)
+            e_alm[ell_idx, m_idx] = e_alm_hp[hp_idx]
+            b_alm[ell_idx, m_idx] = b_alm_hp[hp_idx]
+
+    isht_cuda = iSHTCUDA_spin2(nside, lmax=lmax, mmax=mmax)
+    e_alm_cuda = torch.from_numpy(e_alm).to(device=device)
+    b_alm_cuda = torch.from_numpy(b_alm).to(device=device)
+    g1_cuhpx, g2_cuhpx = isht_cuda(e_alm_cuda, b_alm_cuda)
+
+    g1_healpy, g2_healpy = hp.alm2map_spin([e_alm_hp, b_alm_hp], nside, spin=2, lmax=lmax_hp, mmax=mmax_hp)
+    g1_healpy = torch.from_numpy(g1_healpy).to(device=device, dtype=g1_cuhpx.dtype)
+    g2_healpy = torch.from_numpy(g2_healpy).to(device=device, dtype=g2_cuhpx.dtype)
+
+    assert torch.allclose(g1_cuhpx, g1_healpy, rtol=2e-3, atol=2e-5), (
+        f"cuhpx/healpy g1 spin-2 synthesis mismatch: max diff = {(g1_cuhpx - g1_healpy).abs().max():.2e}"
+    )
+    assert torch.allclose(g2_cuhpx, g2_healpy, rtol=2e-3, atol=2e-5), (
+        f"cuhpx/healpy g2 spin-2 synthesis mismatch: max diff = {(g2_cuhpx - g2_healpy).abs().max():.2e}"
+    )
