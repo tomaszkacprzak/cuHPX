@@ -17,7 +17,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from cuhpx.sht_tools import _precompute_spin2_legpoly, healpix_weights
+from cuhpx.sht_tools import healpix_weights
+from cuhpx.sht_tools_spin2 import _precompute_spin2_legpoly
 
 from . import cuhpx_fft
 
