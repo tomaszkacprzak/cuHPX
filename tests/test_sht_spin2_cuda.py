@@ -19,7 +19,7 @@ import pytest
 import torch
 from conftest import get_roundtrip_tol
 
-from cuhpx import SHTCUDA_spin2, iSHTCUDA_spin2
+from cuhpx.hpx_sht_spin2 import SHTCUDA_spin2, iSHTCUDA_spin2
 
 
 @pytest.mark.cuda
