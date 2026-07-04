@@ -16,4 +16,5 @@
 from . import sht_tools
 from .hpx_regrid import Grid, Regridding
 from .hpx_remap import flat2flat, flat2nest, flat2ring, nest2flat, nest2ring, ring2flat, ring2nest
-from .hpx_sht import SHT, SHTCUDA, SHTCUDA_spin2, VectoriSHT, VectorSHT, iSHT, iSHTCUDA, iSHTCUDA_spin2
+from .hpx_sht import SHT, SHTCUDA, VectoriSHT, VectorSHT, iSHT, iSHTCUDA
+from .hpx_sht_spin2 import SHTCUDA_spin2, iSHTCUDA_spin2
