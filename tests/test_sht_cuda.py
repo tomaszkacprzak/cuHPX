@@ -19,7 +19,7 @@ import pytest
 import torch
 from conftest import get_impl_tol, get_roundtrip_tol
 
-from cuhpx import SHT, SHTCUDA, iSHT, iSHTCUDA
+from cuhpx import SHT, SHTCUDA, SHTCUDA_spin2, iSHT, iSHTCUDA, iSHTCUDA_spin2
 
 
 @pytest.mark.cuda
@@ -81,6 +81,36 @@ def test_shtcuda_isht_cuda_roundtrip(device, nside, lmax, mmax, dtype, complex_d
     assert torch.allclose(
         reconstructed, signal, rtol=rtol, atol=atol
     ), f"CUDA roundtrip failed: max diff = {(reconstructed - signal).abs().max():.2e}"
+
+
+@pytest.mark.cuda
+def test_shtcuda_spin2_ishtcuda_spin2_roundtrip(device, nside, lmax, mmax, dtype, complex_dtype):
+    """Test SHTCUDA_spin2 + iSHTCUDA_spin2 round-trip on bandlimited spin-2 maps."""
+    sht_cuda = SHTCUDA_spin2(nside, lmax=lmax, mmax=mmax, quad_weights="ring")
+    isht_cuda = iSHTCUDA_spin2(nside, lmax=lmax, mmax=mmax)
+
+    # Create strictly band-limited E/B coefficients. Spin-2 harmonics start at l=2,
+    # and using half of lmax leaves a safety margin for the HEALPix quadrature.
+    torch.manual_seed(42)
+    E = torch.zeros((lmax, mmax), dtype=complex_dtype, device=device)
+    B = torch.zeros((lmax, mmax), dtype=complex_dtype, device=device)
+    max_l = min(lmax // 2, nside // 2)
+    for l_idx in range(2, max_l):
+        for m_idx in range(min(l_idx + 1, mmax)):
+            E[l_idx, m_idx] = torch.randn((), dtype=complex_dtype, device=device)
+            B[l_idx, m_idx] = torch.randn((), dtype=complex_dtype, device=device)
+
+    g1, g2 = isht_cuda(E, B)
+    E_back, B_back = sht_cuda(g1, g2)
+    g1_back, g2_back = isht_cuda(E_back, B_back)
+
+    rtol, atol = get_roundtrip_tol()
+    assert torch.allclose(
+        g1_back, g1, rtol=rtol, atol=atol
+    ), f"Spin-2 CUDA g1 roundtrip failed: max diff = {(g1_back - g1).abs().max():.2e}"
+    assert torch.allclose(
+        g2_back, g2, rtol=rtol, atol=atol
+    ), f"Spin-2 CUDA g2 roundtrip failed: max diff = {(g2_back - g2).abs().max():.2e}"
 
 
 @pytest.mark.cuda
